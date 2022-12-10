@@ -5,7 +5,7 @@ namespace Tshock_LiveRefresher
 {
     internal class Program
     {
-        static readonly string ConfigName = "tshock-liverefresher.json";
+        static readonly string ConfigName = "tshock-liverefresher-config.json";
         static readonly string ServerPluginsName = "ServerPlugins";
         static Config Config;
         static Process Process;
