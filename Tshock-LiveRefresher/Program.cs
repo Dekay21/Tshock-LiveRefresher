@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.Json;
 using System.Diagnostics;
 
 namespace Tshock_LiveRefresher
@@ -6,39 +6,31 @@ namespace Tshock_LiveRefresher
     internal class Program
     {
         static readonly string ConfigName = "tshock-liverefresher-config.json";
-        static readonly string ServerPluginsName = "ServerPlugins";
-        static Config Config;
-        static Process Process;
+        private static Config Config;
+        static Process? Process;
 
         static void Main(string[] args)
         {
             if (!File.Exists(ConfigName))
             {
-                File.WriteAllText(ConfigName, JsonConvert.SerializeObject(new Config(), Formatting.Indented));
+                var options = new JsonSerializerOptions { WriteIndented=true, IncludeFields=true};
+                File.WriteAllText(ConfigName, JsonSerializer.Serialize(new Config(), options));
                 Console.WriteLine("Could not find config. Please fill the " + ConfigName + " next to the executable");
+                Console.ReadLine();
                 Environment.Exit(1);
             }
-
-            Config = JsonConvert.DeserializeObject<Config>(File.ReadAllText(ConfigName));
-            if (Config == null)
+            var tmp = JsonSerializer.Deserialize<Config>(File.ReadAllText(ConfigName));
+            if (tmp == null)
             {
                 Console.WriteLine("Invalid config. Please check " + ConfigName);
                 Environment.Exit(1);
             }
+            Config = tmp;
 
             while (true)
             {
-                List<string> toCopy = new List<string>();
-                foreach (string path in Config.Plugins)
-                {
-                    if (CheckFile(path))
-                    {
-                        toCopy.Add(path);
-                    }
-
-                }
-
-                if (toCopy.Count > 0 || Process == null || Process.HasExited)
+                var toCopy = Config.Plugins.Where(path => CheckFile(path));
+                if (toCopy.Any() || Process == null || Process.HasExited)
                 {
                     RestartServer(toCopy);
                 }
@@ -50,7 +42,7 @@ namespace Tshock_LiveRefresher
         static bool CheckFile(string pluginPath)
         {
             string filename = Path.GetFileName(pluginPath);
-            string newLocation = Path.Combine(Config.TshockPath, ServerPluginsName, filename);
+            string newLocation = Path.Combine(Config.TshockPath, Config.PluginsFolder, filename);
             if (!File.Exists(newLocation) || File.GetLastWriteTimeUtc(pluginPath) > File.GetLastWriteTimeUtc(newLocation))
             {
                 Console.WriteLine($"{filename} has changed.");
@@ -59,20 +51,29 @@ namespace Tshock_LiveRefresher
             return false;
         }
 
-        static void RestartServer(List<string> filesToCopy)
+        static void RestartServer(IEnumerable<string> filesToCopy)
         {
+            if (Config == null)
+            {
+                Environment.Exit(1);
+            }
+
             Console.WriteLine("Restarting server.");
             if (Process != null && !Process.HasExited)
             {
                 Process.Kill();
             }
+
             foreach (string file in filesToCopy)
             {
-                string newLocation = Path.Combine(Config.TshockPath, ServerPluginsName, Path.GetFileName(file));
+                string newLocation = Path.Combine(Config.TshockPath, Config.PluginsFolder, Path.GetFileName(file));
                 File.Copy(file, newLocation, true);
             }
-            var startInfo = new ProcessStartInfo(Path.Combine(Config.TshockPath, Config.ExecutableName), Config.ServerParameters);
-            startInfo.WorkingDirectory = Config.TshockPath;
+
+            var startInfo = new ProcessStartInfo(Path.Combine(Config.TshockPath, Config.ExecutableName), Config.ServerParameters)
+            {
+                WorkingDirectory = Config.TshockPath
+            };
             Process = Process.Start(startInfo);
         }
     }
