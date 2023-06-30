@@ -3,7 +3,7 @@
 Inspired by ZakFahey's [live-refresher](https://github.com/ZakFahey/live-refresher)
 Used for developing tshock plugins and reloading the server on relevant changes
 
-Configured thorugh a tshock-liverefresher-config.json
+Configured through `tshock-liverefresher-config.json`
 ```json
 {
   "TshockPath": "./",
